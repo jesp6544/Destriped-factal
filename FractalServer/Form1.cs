@@ -17,7 +17,9 @@ namespace FractalServer
 {
     public partial class Form1 : Form
     {
+		IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, 9001);
         public List<Worker> RenderFarm = new List<Worker>();
+		Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         public Thread ClientThread;
 		public double xmin = -2.1;
 		public double ymin = -1.3;
@@ -27,6 +29,8 @@ namespace FractalServer
         public Form1()
         {
             InitializeComponent();
+			Thread ConnectThread = new Thread(Connect);
+			ConnectThread.Start();
         }
 
         private void ConnectBtn_Click(object sender, EventArgs e)
@@ -35,37 +39,41 @@ namespace FractalServer
             {
                 Connect();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+				MessageBox.Show(ex.Message + "");
                 MessageBox.Show(@"Could not connect to IP");
             }
         }
 
-        public void Connect()
-        {
-                IPAddress remoteIpAddress;
-                if (IPAddress.TryParse(IPConnectTxtbox.Text,out remoteIpAddress)) //Checks if field can be formatted as an IP
-                {
-                    Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    socket.Connect(remoteIpAddress.ToString(), 9001);
-                    byte[] bytes = new byte[1024];
-                    socket.Receive(bytes);
-                    Worker temp = new Worker()
-                    {
-                        IP = remoteIpAddress,
-                        Socket = socket,
-                        Threads = Convert.ToUInt16(bytes)
-                    };
-                    RenderFarm.Add(temp);
-                    ClientThread = new Thread(() =>
-                    {
-                        Resive(temp);
-                    });
-                    ClientThread.Start();
-                    ClientDatagridview.Rows.Add(temp.IP.ToString(), temp.Threads.ToString());
-                }
-                else
-                    MessageBox.Show(@"IP is wrongly formattet");
+		public void Connect()
+		{
+			socket.Bind(localEndPoint);
+			socket.Listen(100);
+			//IPAddress remoteIpAddress;
+			while (true)
+			{
+				Socket clientSocket = socket.Accept();
+				Console.WriteLine("A new client connected");
+				byte[] bytes = new byte[1024];
+				clientSocket.Receive(bytes);
+
+				Worker temp = new Worker()
+				{
+					IP = localEndPoint.Address, //Not the right address
+					Socket = clientSocket,
+					Threads = Convert.ToUInt16(Encoding.ASCII.GetString(bytes))
+				};
+				RenderFarm.Add(temp);
+				ClientThread = new Thread(() =>
+				{
+					Resive(temp);
+				});
+				ClientThread.Start();
+				ClientDatagridview.Rows.Add(temp.IP.ToString(), temp.Threads.ToString());
+			}
+		
+                
         }
 
         public void Send()
@@ -137,13 +145,13 @@ namespace FractalServer
 		    //ymin = -1.5;//Sy; // Start y value, normally -1.3
 		    //xmax = 0.9;//Fx; // Finish x value, normally 1
 		    //ymax = 1.5;//Fy; // Finish y value, normally 1.3
-			intigralX = (xmax - xmin) / b.Width; // Make it fill the whole window
-			intigralY = (ymax - ymin) / b.Height;
-			x = xmin;
+			intigralX = (job.xmax - job.xmin) / b.Width; // Make it fill the whole window
+			intigralY = (job.ymax - job.ymin) / b.Height;
+			x = job.xmin;
 
 			for (s = 1; s < b.Width; s++)
 			{
-				y = ymin;
+				y = job.ymin;
 				for (z = 1; z < b.Height; z++)
 				{
 					x1 = 0;
