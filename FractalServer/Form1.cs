@@ -213,6 +213,14 @@ namespace FractalServer
 					job.width = factalPictureBox.Width / RenderFarm.Count;
 				}
 			}
+			if (true) {
+				job.ymin = ymin;
+				job.ymax = ymax;
+				job.xmax = xmax;
+				job.xmin = xmin;
+				job.height = factalPictureBox.Height;
+				job.width = factalPictureBox.Width;
+			}
 			factalPictureBox.Image = Render(job);
 			factalPictureBox.Update();
         }
@@ -227,6 +235,7 @@ namespace FractalServer
 
         private void SaveBtn_Click(object sender, EventArgs e)
         {
+			int kSize = 1200;  //this is the number of vertical and horizontal pixels
 			Job bla = new Job()
 			{
 				ID = 2,
@@ -234,10 +243,11 @@ namespace FractalServer
 				ymax = ymax,
 				xmax = xmax,
 				xmin = xmin,
-				height = 1200,
-				width = 1200
+				height = kSize,
+				width = kSize
 			};
-			Render(bla).Save("myfile2.png", ImageFormat.Png);
+			Bitmap bit = Render(bla);
+			bit.Save("myfile2.png", ImageFormat.Png);
         }
 
         private void Form1_Load(object sender, EventArgs e)
