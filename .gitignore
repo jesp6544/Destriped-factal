@@ -1,2 +1,10 @@
 
 *.cache
+
+*.exe
+
+*.mdb
+
+*.xml
+
+*.manifest
