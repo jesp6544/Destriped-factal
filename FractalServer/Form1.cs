@@ -19,12 +19,14 @@ namespace FractalServer
     {
 		IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, 9001);
         public List<Worker> RenderFarm = new List<Worker>();
+		public List<Job> JobList = new List<Job>();
 		Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         public Thread ClientThread;
 		public double xmin = -2.1;
 		public double ymin = -1.3;
 		public double xmax = 1;
 		public double ymax = 1.3;
+		public bool running = false;
 
         public Form1()
         {
@@ -37,11 +39,11 @@ namespace FractalServer
         {
             try
             {
-                Connect();
+                //Connect();
             }
             catch (Exception ex)
             {
-				MessageBox.Show(ex.Message + "");
+				//MessageBox.Show(ex.Message + "");
                 MessageBox.Show(@"Could not connect to IP");
             }
         }
@@ -50,7 +52,6 @@ namespace FractalServer
 		{
 			socket.Bind(localEndPoint);
 			socket.Listen(100);
-			//IPAddress remoteIpAddress;
 			while (true)
 			{
 				Socket clientSocket = socket.Accept();
@@ -71,22 +72,64 @@ namespace FractalServer
 				});
 				ClientThread.Start();
 				ClientDatagridview.Rows.Add(temp.IP.ToString(), temp.Threads.ToString());
+				ClientDatagridview.Update();
 			}
-		
-                
         }
 
-        public void Send()
+        public void Send(Worker worker)	//Call this for each worker that needs a job
         {
-            foreach (Worker worker in RenderFarm)
-            {
-                //TODO: make a method that returns the next job
-                Job job = new Job();
-                string jobString = JsonConvert.SerializeObject(job);
-                Byte[] jobByte = Encoding.ASCII.GetBytes(jobString);
-                worker.Socket.Send(jobByte);
-            }
-        }
+			Job job = GetJob();
+			if (job != null)
+			{
+				string jobString = JsonConvert.SerializeObject(job); 	//Converts the job Object to a json string
+				Byte[] jobByte = Encoding.ASCII.GetBytes(jobString);	//Converts that string to bytes
+				worker.Socket.Send(jobByte); 							//Sends those bytes to worker
+			}
+			else { 
+				running = false;	
+			}	//sets running to false if there is no more jobs
+		}
+
+		public Job GetJob() {
+			if (JobList.Count > 0)
+			{
+				Job job = JobList.First();
+				JobList.Remove(job);
+				return job;
+			}
+			else {
+				return null;
+				}
+		}
+
+		public void SetUpJobs() {
+			running = true;
+			Job job = new Job();
+			double halfHeight = ymax - (ymax - ymin) / 2;
+			double jobXLenth = (xmax - xmin) / RenderFarm.Count;
+			for (ushort i = 0; i < RenderFarm.Count * 2; i++)
+			{
+				double tmp;
+				if (i > RenderFarm.Count) { tmp = halfHeight; }
+				else { tmp = ymin; }
+				job.ID = i;
+				job.ymin = tmp;
+				job.ymax = ymax;
+				job.xmax = 1;//xmin + i * jobXLenth % RenderFarm.Count;
+				job.xmin = xmin + (i - 1) * jobXLenth % RenderFarm.Count;
+				job.height = factalPictureBox.Height / 2;
+				job.width = factalPictureBox.Width / RenderFarm.Count;
+
+				JobList.Add(job);
+			}
+		}
+
+		public Image ByteToImage(Byte[] img)
+		{
+			ImageConverter converter = new ImageConverter();
+			return (Bitmap)converter.ConvertTo(img, typeof(Bitmap));
+			//return (byte[])converter.ConvertTo(img, typeof(byte[]));
+		}
 
         public void Resive(Worker worker)
         {
@@ -96,25 +139,39 @@ namespace FractalServer
                 while (true)
                 {
                     worker.Socket.Receive(bytes);
-                    string pieceString = Encoding.ASCII.GetString(bytes);
-                    Piece piece = JsonConvert.DeserializeObject<Piece>(pieceString);
-                    //foreach (var i in ClientDatagridview)
-                    //{
-                        
-                    //}
-                    int tempNum = piece.ID*(1000);
+					string pieceString = Encoding.ASCII.GetString(bytes);
+					Piece piece = JsonConvert.DeserializeObject<Piece>(pieceString);
+					Bitmap bitmap = new Bitmap(factalPictureBox.Width, factalPictureBox.Height);
+					foreach (var i in piece.pixels)
+					{
+						int y = Convert.ToInt32(i.Placement) % factalPictureBox.Width;
+						int x = Convert.ToInt32(i.Placement) - factalPictureBox.Width * y;
+						bitmap.SetPixel(x, y, i.color);
+					}
 
+					factalPictureBox.Image = bitmap;
+					factalPictureBox.Update();
+                    //string pieceString = Encoding.ASCII.GetString(bytes);
+                    //Piece piece = JsonConvert.DeserializeObject<Piece>(pieceString);
+					//foreach (var i in ClientDatagridview)
+					//{
+
+					//}
+					if (running == true) {	//If there still are jobs to be done, send the worker a new one
+						Send(worker);
+					}
                 }
             }
             catch (Exception)
             {
-                //TODO: make a popup that askes to remove the tread or retry
+                //TODO: Make a popup that askes to remove the tread or retry
                 Thread.CurrentThread.Abort();
             }
         }
 
         private void RenderBtn_Click(object sender, EventArgs e)
         {
+			//SetUpJobs();
 			Job bla = new Job()
 			{
 				ID = 1,
@@ -130,21 +187,15 @@ namespace FractalServer
         }
 		public Bitmap Render(Job job)
 		{
-			//MessageBox.Show(xmin + "\n" + xmax + "\n" + ymin + "\n" + ymax + "\n");
 			// Holds all of the possible colors
-  			Color[] cs = new Color[256];
+  			Color[] cs = new Color[256]; //Not used as of this time
 
-			//var temp = (xmax - ymax)/2;
 			// Creates the Bitmap we draw to
 			Bitmap b = new Bitmap(job.width, job.height);
 			// From here on out is just converted from the c++ version.
 			double x, y, x1, y1, xx, intigralX, intigralY = 0.0;
 
 			int looper, s, z = 0;
-		    //xmin = -2.1;//Sx; // Start x value, normally -2.1
-		    //ymin = -1.5;//Sy; // Start y value, normally -1.3
-		    //xmax = 0.9;//Fx; // Finish x value, normally 1
-		    //ymax = 1.5;//Fy; // Finish y value, normally 1.3
 			intigralX = (job.xmax - job.xmin) / b.Width; // Make it fill the whole window
 			intigralY = (job.ymax - job.ymin) / b.Height;
 			x = job.xmin;
@@ -177,17 +228,11 @@ namespace FractalServer
 				x += intigralX;
 			}
 			return b;
-
-			//this.BackgroundImage = (Image)bq; // Draw it to the form
     }
 
         private void factalPictureBox_MouseDoubleClick(object sender, MouseEventArgs e)
         {
-			//MessageBox.Show(e.Y +"");
 			double temp = (xmax - xmin) / 4;
-			//MessageBox.Show("(" + xmax + "-" + xmin + ")" + "*" + "(" + e.X + "/"+ factalPictureBox.Width +")"+ "=" + (xmax - xmin) * (e.X / factalPictureBox.Width) + "");
-			//MessageBox.Show(e.X / 500 + "");
-			//MessageBox.Show(e.X + "")
 			double tempX = xmin + (xmax - xmin) * (Convert.ToDouble(e.X) / factalPictureBox.Width);
 			double tempY = ymin + (ymax - ymin) * (Convert.ToDouble(e.Y) / factalPictureBox.Height);
 			xmin = tempX - temp;
@@ -195,6 +240,7 @@ namespace FractalServer
 			ymin = tempY - temp;
 			ymax = tempY + temp;
 			Job job = new Job();
+			/*
 			if (false)  //This piece of code is for makin the jobs for rendering and it not done at this point in time. 
 			{
 				double halfHeight = ymax - (ymax - ymin) / 2;
@@ -213,6 +259,7 @@ namespace FractalServer
 					job.width = factalPictureBox.Width / RenderFarm.Count;
 				}
 			}
+			*/
 			if (true) {
 				job.ymin = ymin;
 				job.ymax = ymax;
@@ -228,14 +275,20 @@ namespace FractalServer
         private void button1_Click(object sender, EventArgs e)
         {
         xmin = -2.1;
-        ymin = -1.5;
-        xmax = 0.9;
-        ymax = 1.5;
-    }
+        ymin = -1.3;
+        xmax = 1.0;
+        ymax = 1.3;
+    	}
 
         private void SaveBtn_Click(object sender, EventArgs e)
         {
-			int kSize = 1200;  //this is the number of vertical and horizontal pixels
+			SetUpJobs();
+			foreach (var i in RenderFarm)
+			{
+				Send(i);
+			}
+			/*
+			int kSize = 1200;  //This is the number of vertical and horizontal pixels
 			Job bla = new Job()
 			{
 				ID = 2,
@@ -246,9 +299,10 @@ namespace FractalServer
 				height = kSize,
 				width = kSize
 			};
-			Bitmap bit = Render(bla);
-			bit.Save("myfile2.png", ImageFormat.Png);
-        }
+			Bitmap bit = Render(bla);	//Renders the picture as a bitmap
+			bit.Save("myfile2.png", ImageFormat.Png);	//saves the bit bitmap as a .Png
+			*/
+		}
 
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -259,7 +313,7 @@ namespace FractalServer
     public class Job
     {
         public ushort ID { get; set; }
-		//Some var(s) that carry the calculation
+		//Some vars that carry the calculation
 		public double xmin { get; set; }
 		public double xmax { get; set; }
 		public double ymin { get; set; }
@@ -270,8 +324,8 @@ namespace FractalServer
 
     public class Piece
     {
-        public ushort ID { get; set; }  //same as Job ID  //Can handle up to 16383 total cores in renderfarm
-        //TODO: might add offset to enable transfer while going
+		public ushort ID { get; set; }  //same as Job ID  //Can handle up to 32,767 total cores in renderfarm (because 1 core is 2 jobs)(or as trump would have said "1 mexican takes 2 american jobs!")
+        //TODO: Might add offset to enable transfer while going
         public List<Pixel> pixels { get; set; }
     }
     public class Pixel
@@ -282,7 +336,7 @@ namespace FractalServer
     public class Worker
     {
         public IPAddress IP { get; set; }
-        public ushort Threads { get; set; }  	//I guess the program won't incounter a machine with over 32,767 threads ¯\_(ツ)_/¯
+        public ushort Threads { get; set; }  	//I guess the program won't incounter a machine with over 65,535 threads ¯\_(ツ)_/¯
 		public sbyte Progress { get; set; } 	//Only goes from 0-100 (%) so might as well save 8bits..
         public Socket Socket { get; set; }
     }

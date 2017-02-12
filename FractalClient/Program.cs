@@ -7,17 +7,19 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Drawing;
+using Newtonsoft.Json;
+using System.Drawing.Imaging;
 
 namespace FractalClient
 {
     class Program
     {
 		static Socket host = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		static Piece piece = new Piece();
 
         static void Main(string[] args)
         {
 			Console.WriteLine("This is the render client program");
-			Console.WriteLine("Please wait make sure the render host is running");
 			Console.WriteLine("Number Of Logical Processors: {0}", Environment.ProcessorCount);
 			Console.WriteLine("Please write host IP: ");
 			IPAddress goodIP;
@@ -26,23 +28,79 @@ namespace FractalClient
 			{ 
 				Connect(goodIP);
 			}
-
-
 		}
 		static void Connect(IPAddress goodIP) {
 			host.Connect(goodIP, 9001);
 			Console.WriteLine("Connect! ");
 			FirstContact();
 		}
+
 		static void FirstContact() {
-			string msg = "4";
+			Console.WriteLine("FirstContact");
+			string msg = Environment.ProcessorCount.ToString();
 			byte[] msgbyte = Encoding.ASCII.GetBytes(msg);
 			host.Send(msgbyte);
-			byte[] bytes = new byte[1024];
-			host.Receive(bytes);
+			Thread ConnectThread = new Thread(Resive);
+			ConnectThread.Start();
 		}
-		public Bitmap Render(Job job)
+
+		static public void Resive()
 		{
+			Console.WriteLine("Listening");
+			byte[] bytes = new byte[1024];
+			while (true)
+			{
+				host.Receive(bytes);
+				Console.WriteLine("Got a job");
+				string jobString = Encoding.ASCII.GetString(bytes);
+				Job job = JsonConvert.DeserializeObject<Job>(jobString);
+				Console.WriteLine("value: {0} - {1},", "xmin", job.xmin);
+				Console.WriteLine("value: {0} - {1},", "xmax", job.xmax);
+				Console.WriteLine("value: {0} - {1},", "ymin", job.ymin);
+				Console.WriteLine("value: {0} - {1},", "ymax", job.ymax);
+				Console.WriteLine("value: {0} - {1},", "height", job.height);
+				Console.WriteLine("value: {0} - {1},", "weidth", job.width);
+				DoWork(job);
+			}
+		}
+
+		static void DoWork(Job job) { 
+			Console.WriteLine("started working ");
+			Bitmap temp = Render(job);
+			temp.Save("myfile2.png", ImageFormat.Png);
+			piece.ID = job.ID;
+			Sending(temp);
+		}
+
+		static void Sending(Bitmap img) {
+			Console.WriteLine("Started sending");
+			Pixel pix = new Pixel();
+			int width = img.Width;
+			for (int i = 0; i < img.Width; i++)
+			{
+				for (int j = 0; j < img.Height; j++)
+				{
+					pix.Placement = (uint)((width * j) + i);
+					pix.color = img.GetPixel(i, j);
+					Console.WriteLine("now adding pix to piece");
+					Console.WriteLine(pix.Placement + "");
+					Console.WriteLine(pix.color + "");
+					Console.WriteLine(img.GetPixel(i, j) + "");
+					piece.pixels.Add(pix);
+					Console.WriteLine("bla");
+				}
+			}
+			Console.WriteLine("Done making piece");
+			string pieceString = JsonConvert.SerializeObject(piece);    //Converts the job Object to a json string
+			Byte[] pieceByte = Encoding.ASCII.GetBytes(pieceString);    //Converts that string to bytes
+			Console.WriteLine("sending piece");
+			host.Send(pieceByte);
+			Console.WriteLine("Done sending piece");
+			piece = null;
+		}
+
+		static public Bitmap Render(Job job)
+		{Console.WriteLine("Started render");
 			//MessageBox.Show(xmin + "\n" + xmax + "\n" + ymin + "\n" + ymax + "\n");
 			// Holds all of the possible colors
 			//Color[] cs = new Color[256];
@@ -83,6 +141,7 @@ namespace FractalClient
 				}
 				x += intigralX;
 			}
+			Console.WriteLine("Done render");
 			return b;
 		}
 
