@@ -61,7 +61,7 @@ namespace FractalServer
 
 				Worker temp = new Worker()
 				{
-					IP = localEndPoint.Address, //Not the right address
+					IP = localEndPoint.Address, //FIXME: Not the right address
 					Socket = clientSocket,
 					Threads = Convert.ToUInt16(Encoding.ASCII.GetString(bytes))
 				};
@@ -91,7 +91,7 @@ namespace FractalServer
 		}
 
 		public Job GetJob() {
-			if (JobList.Count > 0)
+			if (JobList.Count > 0)	//Yes this should be done with a queue..
 			{
 				Job job = JobList.First();
 				JobList.Remove(job);

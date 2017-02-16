@@ -21,9 +21,13 @@ namespace FractalClient
         {
 			Console.WriteLine("This is the render client program");
 			Console.WriteLine("Number Of Logical Processors: {0}", Environment.ProcessorCount);
-			Console.WriteLine("Please write host IP: ");
+			Console.WriteLine("Please write host IP, or [Enter] for default: ");
 			IPAddress goodIP;
 			string ip = Console.ReadLine();
+			if (ip == "")
+			{
+				ip = "127.0.0.1";
+			}
 			if (IPAddress.TryParse(ip, out goodIP))
 			{ 
 				Connect(goodIP);
@@ -76,20 +80,23 @@ namespace FractalClient
 			Console.WriteLine("Started sending");
 			Pixel pix = new Pixel();
 			int width = img.Width;
+			List<Pixel> test = new List<Pixel> { };
 			for (int i = 0; i < img.Width; i++)
 			{
 				for (int j = 0; j < img.Height; j++)
 				{
-					pix.Placement = (uint)((width * j) + i);
+					pix.Placement = (uint)((width * j) + i );
 					pix.color = img.GetPixel(i, j);
-					Console.WriteLine("now adding pix to piece");
-					Console.WriteLine(pix.Placement + "");
-					Console.WriteLine(pix.color + "");
-					Console.WriteLine(img.GetPixel(i, j) + "");
-					piece.pixels.Add(pix);
-					Console.WriteLine("bla");
+					//Console.WriteLine("now adding pix to piece");
+					//Console.WriteLine(pix.Placement + "");
+					//Console.WriteLine(pix.color + "");
+					//Console.WriteLine(img.GetPixel(i, j) + "");
+					test.Add(pix);
+
+					//Console.WriteLine("bla");
 				}
 			}
+			piece.pixels = test;
 			Console.WriteLine("Done making piece");
 			string pieceString = JsonConvert.SerializeObject(piece);    //Converts the job Object to a json string
 			Byte[] pieceByte = Encoding.ASCII.GetBytes(pieceString);    //Converts that string to bytes
