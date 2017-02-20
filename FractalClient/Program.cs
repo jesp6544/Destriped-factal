@@ -16,21 +16,31 @@ namespace FractalClient
     {
 		static Socket host = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 		static Piece piece = new Piece();
+		static bool verbose = false;
 
         static void Main(string[] args)
         {
+			string DefaultIp = "127.0.0.1";	//local host
 			Console.WriteLine("This is the render client program");
-			Console.WriteLine("Number Of Logical Processors: {0}", Environment.ProcessorCount);
-			Console.WriteLine("Please write host IP, or [Enter] for default: ");
+			Console.WriteLine("Number Of Logical Processors: {0}", Environment.ProcessorCount);	//Number og CPU threads.
+			Console.WriteLine("Please write host IP, or [Enter] for default ({0}): ",DefaultIp);
 			IPAddress goodIP;
 			string ip = Console.ReadLine();
 			if (ip == "")
 			{
-				ip = "127.0.0.1";
+				ip = DefaultIp;
 			}
 			if (IPAddress.TryParse(ip, out goodIP))
 			{ 
-				Connect(goodIP);
+				try
+				{
+					Connect(goodIP);
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine("Closed");  //Used for debugging to avoid crash every time the host shuts down
+				}
+
 			}
 		}
 		static void Connect(IPAddress goodIP) {
@@ -50,22 +60,25 @@ namespace FractalClient
 
 		static public void Resive()
 		{
-			Console.WriteLine("Listening");
-			byte[] bytes = new byte[1024];
-			while (true)
-			{
-				host.Receive(bytes);
-				Console.WriteLine("Got a job");
-				string jobString = Encoding.ASCII.GetString(bytes);
-				Job job = JsonConvert.DeserializeObject<Job>(jobString);
-				Console.WriteLine("value: {0} - {1},", "xmin", job.xmin);
-				Console.WriteLine("value: {0} - {1},", "xmax", job.xmax);
-				Console.WriteLine("value: {0} - {1},", "ymin", job.ymin);
-				Console.WriteLine("value: {0} - {1},", "ymax", job.ymax);
-				Console.WriteLine("value: {0} - {1},", "height", job.height);
-				Console.WriteLine("value: {0} - {1},", "weidth", job.width);
-				DoWork(job);
-			}
+				Console.WriteLine("Listening");
+				byte[] bytes = new byte[1024];
+				while (true)
+				{
+					host.Receive(bytes);
+					Console.WriteLine("Got a job");
+					string jobString = Encoding.ASCII.GetString(bytes);
+					Job job = JsonConvert.DeserializeObject<Job>(jobString);
+					if (verbose)
+					{
+						Console.WriteLine("value: {0} - {1},", "xmin", job.xmin);
+						Console.WriteLine("value: {0} - {1},", "xmax", job.xmax);
+						Console.WriteLine("value: {0} - {1},", "ymin", job.ymin);
+						Console.WriteLine("value: {0} - {1},", "ymax", job.ymax);
+						Console.WriteLine("value: {0} - {1},", "height", job.height);
+						Console.WriteLine("value: {0} - {1},", "weidth", job.width);
+					}
+					DoWork(job);
+				}
 		}
 
 		static void DoWork(Job job) { 
@@ -76,39 +89,67 @@ namespace FractalClient
 			Sending(temp);
 		}
 
-		static void Sending(Bitmap img) {
-			Console.WriteLine("Started sending");
-			Pixel pix = new Pixel();
-			int width = img.Width;
-			List<Pixel> test = new List<Pixel> { };
-			for (int i = 0; i < img.Width; i++)
-			{
-				for (int j = 0; j < img.Height; j++)
-				{
-					pix.Placement = (uint)((width * j) + i );
-					pix.color = img.GetPixel(i, j);
-					//Console.WriteLine("now adding pix to piece");
-					//Console.WriteLine(pix.Placement + "");
-					//Console.WriteLine(pix.color + "");
-					//Console.WriteLine(img.GetPixel(i, j) + "");
-					test.Add(pix);
-
-					//Console.WriteLine("bla");
-				}
-			}
-			piece.pixels = test;
-			Console.WriteLine("Done making piece");
+		static void SendPart() { 
 			string pieceString = JsonConvert.SerializeObject(piece);    //Converts the job Object to a json string
-			Byte[] pieceByte = Encoding.ASCII.GetBytes(pieceString);    //Converts that string to bytes
+			byte[] pieceByte = Encoding.ASCII.GetBytes(@pieceString);    //Converts that string to bytes
+			if (verbose)
+			{
+				Console.WriteLine(Encoding.ASCII.GetString(pieceByte));
+			}
 			Console.WriteLine("sending piece");
 			host.Send(pieceByte);
 			Console.WriteLine("Done sending piece");
-			piece = null;
+		}
+
+		static void Sending(Bitmap img) {
+			Console.WriteLine("Started sending");
+
+			int width = img.Width;
+			List<Pixel> test = new List<Pixel>();
+			for (int i = 0; i < img.Height; i++)
+			{
+				for (int j = 0; j < width; j++)
+				{
+					Pixel pix = new Pixel();
+					pix.Placement = (uint)((width * i) + j );
+					pix.color = img.GetPixel(j, i).R;
+					if (verbose)
+					{
+						Console.WriteLine("Now adding pix to piece" + Environment.NewLine + 
+						                  "Pix Placement: {0}",pix.Placement + Environment.NewLine +
+						                  "Pix Color{0}",pix.color + Environment.NewLine + 
+						                  "Pixel Color {0}",img.GetPixel(j, i));
+					}
+					test.Add(pix);
+					if (test.Count == 2000)	//Or ((i * img.Height + j) % 2000 == 0) TEST FIXME HACK
+					{
+						piece.pixels = test;
+						piece.done = false;
+						SendPart();
+					}
+				}
+			}
+			if (test.Count > 1) { 
+				piece.pixels = test;
+				piece.done = true;
+				SendPart();
+			}
+
+			Console.WriteLine("Done making a piece");
+			string pieceString = JsonConvert.SerializeObject(piece);    //Converts the job Object to a json string
+			byte[] pieceByte = Encoding.ASCII.GetBytes(@pieceString);    //Converts that string to bytes
+			if (verbose)
+			{
+				Console.WriteLine(Encoding.ASCII.GetString(pieceByte));
+			}
+			Console.WriteLine("sending piece");
+			host.Send(pieceByte);
+			Console.WriteLine("Done sending piece");
+			//piece = null;
 		}
 
 		static public Bitmap Render(Job job)
 		{Console.WriteLine("Started render");
-			//MessageBox.Show(xmin + "\n" + xmax + "\n" + ymin + "\n" + ymax + "\n");
 			// Holds all of the possible colors
 			//Color[] cs = new Color[256];
 
@@ -151,9 +192,6 @@ namespace FractalClient
 			Console.WriteLine("Done render");
 			return b;
 		}
-
-
-		//byte[] msgByte = Encoding.ASCII.GetBytes(msg);
     }
 	public class Job
 	{
@@ -172,11 +210,12 @@ namespace FractalClient
 		public ushort ID { get; set; }  //same as Job ID  //Can handle up to 16383 total cores in renderfarm
 										//TODO: might add offset to enable transfer while going
 		public List<Pixel> pixels { get; set; }
+		public bool done { get; set; }
 	}
 	public class Pixel
 	{
 		public uint Placement { get; set; }         //Int is enough for 1 job to handle 65.000x65.000 picture, no need to go higher really..
-		public Color color { get; set; }        //Is it more efficient to use 3 ints as RGB?  //TODO: test this
+		public byte color { get; set; }        //Is it more efficient to use 3 ints as RGB?  //TODO: test this
 	}
 	public class Worker
 	{
