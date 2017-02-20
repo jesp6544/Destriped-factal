@@ -121,7 +121,7 @@ namespace FractalClient
 						                  "Pixel Color {0}",img.GetPixel(j, i));
 					}
 					test.Add(pix);
-					if (test.Count == 2000)	//Or ((i * img.Height + j) % 2000 == 0) TEST FIXME HACK
+					if (test.Count == 1999)	//Or ((i * img.Height + j) % 2000 == 0) TODO test what is faster
 					{
 						piece.pixels = test;
 						piece.done = false;
@@ -129,11 +129,17 @@ namespace FractalClient
 					}
 				}
 			}
-			if (test.Count > 1) { 
+			//Now sending rest if there are any more, and sending the 'done' bool
+			if (test.Count > 0)
+			{
 				piece.pixels = test;
-				piece.done = true;
-				SendPart();
 			}
+			else
+			{
+				piece.pixels = null;
+			}
+			piece.done = true;
+			SendPart();
 
 			Console.WriteLine("Done making a piece");
 			string pieceString = JsonConvert.SerializeObject(piece);    //Converts the job Object to a json string

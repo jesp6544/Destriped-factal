@@ -134,31 +134,32 @@ namespace FractalServer
 		{
 			try
 			{
-				
+
 				while (true)
 				{
-					byte[] bytes = new Byte[819020];
+					byte[] bytes = new Byte[8192];
 					string pieceString = "";
-					while (worker.Socket.Receive(bytes) > 0) {
+					while (worker.Socket.Receive(bytes) > 0)
+					{
 						pieceString += Encoding.ASCII.GetString(bytes);
 					}
 
 					//string pieceString = Encoding.ASCII.GetString(bytes);
 					Piece piece = JsonConvert.DeserializeObject<Piece>(pieceString);
-					Bitmap bitmap = new Bitmap(10,10);//factalPictureBox.Width, factalPictureBox.Height);
-					//for (int i = 0; i < 10; i++)
-					//{
-					//	for (int j = 0; j < 10; j++)
-					//	{
-					//		Color color = piece.pixels[(i  * 10) + j].color;
-					//		bitmap.SetPixel(j, i, color);
-					//	}
-					//}
+					Bitmap bitmap = new Bitmap(10, 10);//factalPictureBox.Width, factalPictureBox.Height);
+													   //for (int i = 0; i < 10; i++)
+													   //{
+													   //	for (int j = 0; j < 10; j++)
+													   //	{
+													   //		Color color = piece.pixels[(i  * 10) + j].color;
+													   //		bitmap.SetPixel(j, i, color);
+													   //	}
+													   //}
 					foreach (var i in piece.pixels)
 					{
 						int y = Convert.ToInt32(i.Placement) / 10;//factalPictureBox.Width;
-						int x = Convert.ToInt32(i.Placement) - 10 *y ;//factalPictureBox.Width * y;
-						bitmap.SetPixel(x, y, Color.FromArgb(i.color,0,0));
+						int x = Convert.ToInt32(i.Placement) - 10 * y;//factalPictureBox.Width * y;
+						bitmap.SetPixel(x, y, Color.FromArgb(i.color, 0, 0));
 					}
 
 					factalPictureBox.Image = bitmap;
@@ -324,7 +325,7 @@ namespace FractalServer
 	public class Job
 	{
 		public ushort ID { get; set; }
-		//Some vars that carry the calculation
+		//Some vars that carry the calculation and size
 		public double xmin { get; set; }
 		public double xmax { get; set; }
 		public double ymin { get; set; }
@@ -335,21 +336,20 @@ namespace FractalServer
 
 	public class Piece
 	{
-		public ushort ID { get; set; }  //same as Job ID  //Can handle up to 16383 total cores in renderfarm
-										//TODO: might add offset to enable transfer while going
+		public ushort ID { get; set; }  //same as Job ID  //Can handle up to 16383 total cores in renderfarm  
 		public List<Pixel> pixels { get; set; }
-		public bool done { get; set; }
+		public bool done { get; set; }  //Used to send to the host if this is the last part of the piece
 	}
 	public class Pixel
 	{
 		public uint Placement { get; set; }         //Int is enough for 1 job to handle 65.000x65.000 picture, no need to go higher really..
-		public byte color { get; set; }        //Is it more efficient to use 3 ints as RGB?  //TODO: test this
+		public byte color { get; set; }        //0-255 colors, might make this better in the furture
 	}
 	public class Worker
 	{
 		public IPAddress IP { get; set; }
 		public ushort Threads { get; set; }     //I guess the program won't incounter a machine with over 65,535 threads ¯\_(ツ)_/¯
-		public sbyte Progress { get; set; }     //Only goes from 0-100 (%) so might as well save 8bits..
+		public byte Progress { get; set; }     //Only goes from 0-100 (%) so might as well save 8bits..
 		public Socket Socket { get; set; }
 	}
 
