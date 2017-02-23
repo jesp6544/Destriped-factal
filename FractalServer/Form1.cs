@@ -27,6 +27,7 @@ namespace FractalServer
 		public double xmax = 1;
 		public double ymax = 1.3;
 		public bool running = false;
+		public Bitmap tempBitmap;
 
 		public Form1()
 		{
@@ -93,9 +94,9 @@ namespace FractalServer
 
 		public Job GetJob()
 		{
-			if (JobList.Count > 0)  //Yes this should be done with a queue..
+			if (JobList.Count > 0)  //Yes this should/couldl be done with a queue..
 			{
-				Job job = JobList.First();
+				Job job = JobList.FirstOrDefault();
 				JobList.Remove(job);
 				return job;
 			}
@@ -130,47 +131,57 @@ namespace FractalServer
 			}
 		}
 
+
 		public void Resive(Worker worker)
 		{
 			try
 			{
-
 				while (true)
 				{
 					byte[] bytes = new Byte[8192];
-					string pieceString = "";
-					while (worker.Socket.Receive(bytes) > 0)
-					{
-						pieceString += Encoding.ASCII.GetString(bytes);
-					}
-
-					//string pieceString = Encoding.ASCII.GetString(bytes);
+					//string pieceString = "";
+					//while (worker.Socket.Receive(bytes) > 0)  //This might not be needed anymore, the client now sends every time a buffer is full
+					//{
+					//	pieceString += Encoding.ASCII.GetString(bytes);
+					//}
+					worker.Socket.Receive(bytes);
+					string pieceString = Encoding.ASCII.GetString(bytes);
 					Piece piece = JsonConvert.DeserializeObject<Piece>(pieceString);
-					Bitmap bitmap = new Bitmap(10, 10);//factalPictureBox.Width, factalPictureBox.Height);
-													   //for (int i = 0; i < 10; i++)
-													   //{
-													   //	for (int j = 0; j < 10; j++)
-													   //	{
-													   //		Color color = piece.pixels[(i  * 10) + j].color;
-													   //		bitmap.SetPixel(j, i, color);
-													   //	}
-													   //}
+					int y;
+					int x;
 					foreach (var i in piece.pixels)
 					{
-						int y = Convert.ToInt32(i.Placement) / 10;//factalPictureBox.Width;
-						int x = Convert.ToInt32(i.Placement) - 10 * y;//factalPictureBox.Width * y;
-						bitmap.SetPixel(x, y, Color.FromArgb(i.color, 0, 0));
+						if (piece.ID < RenderFarm.Count)
+						{
+							y = Convert.ToInt32(i.Placement) / piece.xLenth;
+							x = (piece.xLenth * piece.ID) + Convert.ToInt32(i.Placement) % piece.xLenth;
+						}
+						else
+						{
+							y = factalPictureBox.Height / 2 + Convert.ToInt32(i.Placement) / piece.xLenth;
+							x = (piece.xLenth * Convert.ToInt32(piece.ID / 2)) + Convert.ToInt32(i.Placement) % piece.xLenth;
+						}
+						//int x = (piece.xLenth * piece.ID) + Convert.ToInt32(i.Placement) % piece.xLenth;
+						try
+						{
+							tempBitmap.SetPixel(x, y, Color.FromArgb(i.color, 0, 0));
+						}
+						catch (Exception ex)
+						{
+							MessageBox.Show(ex.Message + "");
+						}
+
 					}
 
-					factalPictureBox.Image = bitmap;
+					factalPictureBox.Image = tempBitmap;
 					factalPictureBox.Update();
-					bitmap.Save("myfilebla.png", ImageFormat.Png);
+					tempBitmap.Save("myfilebla.png", ImageFormat.Png);
 
-					//}
-					if (running == true)
+					if (piece.done == true)
 					{   //If there still are jobs to be done, send the worker a new one
 						Send(worker);
 					}
+					bytes = null;
 				}
 			}
 			catch (Exception)
@@ -251,26 +262,7 @@ namespace FractalServer
 			ymin = tempY - temp;
 			ymax = tempY + temp;
 			Job job = new Job();
-			/*
-			if (false)  //This piece of code is for makin the jobs for rendering and it not done at this point in time. 
-			{
-				double halfHeight = ymax - (ymax - ymin) / 2;
-				double jobXLenth = temp * 4 / RenderFarm.Count;
-				for (ushort i = 0; i < RenderFarm.Count * 2; i++)
-				{  
-					double tmp;
-					if (i > RenderFarm.Count) { tmp = halfHeight; }
-					else { tmp = ymin; }
-					job.ID = i;
-					job.ymin = tmp;
-					job.ymax = ymax;
-					job.xmax = xmin + i * jobXLenth % RenderFarm.Count;
-					job.xmin = xmin + (i - 1) * jobXLenth % RenderFarm.Count;
-					job.height = factalPictureBox.Height / 2;
-					job.width = factalPictureBox.Width / RenderFarm.Count;
-				}
-			}
-			*/
+
 			if (true)
 			{
 				job.ymin = ymin;
@@ -318,7 +310,9 @@ namespace FractalServer
 
 		private void Form1_Load(object sender, EventArgs e)
 		{
-
+			tempBitmap = new Bitmap(
+				Height = factalPictureBox.Height,
+				Width = factalPictureBox.Width);
 		}
 	}
 
@@ -339,6 +333,7 @@ namespace FractalServer
 		public ushort ID { get; set; }  //same as Job ID  //Can handle up to 16383 total cores in renderfarm  
 		public List<Pixel> pixels { get; set; }
 		public bool done { get; set; }  //Used to send to the host if this is the last part of the piece
+		public int xLenth { get; set; }
 	}
 	public class Pixel
 	{

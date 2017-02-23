@@ -12,18 +12,18 @@ using System.Drawing.Imaging;
 
 namespace FractalClient
 {
-    class Program
-    {
+	class Program
+	{
 		static Socket host = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 		static Piece piece = new Piece();
 		static bool verbose = false;
 
-        static void Main(string[] args)
-        {
-			string DefaultIp = "127.0.0.1";	//local host
+		static void Main(string[] args)
+		{
+			string DefaultIp = "127.0.0.1"; //local host
 			Console.WriteLine("This is the render client program");
-			Console.WriteLine("Number Of Logical Processors: {0}", Environment.ProcessorCount);	//Number og CPU threads.
-			Console.WriteLine("Please write host IP, or [Enter] for default ({0}): ",DefaultIp);
+			Console.WriteLine("Number Of Logical Processors: {0}", Environment.ProcessorCount); //Number og CPU threads.
+			Console.WriteLine("Please write host IP, or [Enter] for default ({0}): ", DefaultIp);
 			IPAddress goodIP;
 			string ip = Console.ReadLine();
 			if (ip == "")
@@ -31,7 +31,7 @@ namespace FractalClient
 				ip = DefaultIp;
 			}
 			if (IPAddress.TryParse(ip, out goodIP))
-			{ 
+			{
 				try
 				{
 					Connect(goodIP);
@@ -43,13 +43,15 @@ namespace FractalClient
 
 			}
 		}
-		static void Connect(IPAddress goodIP) {
+		static void Connect(IPAddress goodIP)
+		{
 			host.Connect(goodIP, 9001);
 			Console.WriteLine("Connect! ");
 			FirstContact();
 		}
 
-		static void FirstContact() {
+		static void FirstContact()
+		{
 			Console.WriteLine("FirstContact");
 			string msg = Environment.ProcessorCount.ToString();
 			byte[] msgbyte = Encoding.ASCII.GetBytes(msg);
@@ -60,37 +62,42 @@ namespace FractalClient
 
 		static public void Resive()
 		{
-				Console.WriteLine("Listening");
-				byte[] bytes = new byte[1024];
-				while (true)
+			Console.WriteLine("Listening");
+			byte[] bytes = new byte[1024];
+			while (host.Connected)
+			{
+				host.Receive(bytes);
+				Console.WriteLine("Got a job");
+				string jobString = Encoding.ASCII.GetString(bytes);
+				Job job = JsonConvert.DeserializeObject<Job>(jobString);
+				if (verbose)
 				{
-					host.Receive(bytes);
-					Console.WriteLine("Got a job");
-					string jobString = Encoding.ASCII.GetString(bytes);
-					Job job = JsonConvert.DeserializeObject<Job>(jobString);
-					if (verbose)
-					{
-						Console.WriteLine("value: {0} - {1},", "xmin", job.xmin);
-						Console.WriteLine("value: {0} - {1},", "xmax", job.xmax);
-						Console.WriteLine("value: {0} - {1},", "ymin", job.ymin);
-						Console.WriteLine("value: {0} - {1},", "ymax", job.ymax);
-						Console.WriteLine("value: {0} - {1},", "height", job.height);
-						Console.WriteLine("value: {0} - {1},", "weidth", job.width);
-					}
-					DoWork(job);
+					Console.WriteLine("value: {0} - {1},", "xmin", job.xmin);
+					Console.WriteLine("value: {0} - {1},", "xmax", job.xmax);
+					Console.WriteLine("value: {0} - {1},", "ymin", job.ymin);
+					Console.WriteLine("value: {0} - {1},", "ymax", job.ymax);
+					Console.WriteLine("value: {0} - {1},", "height", job.height);
+					Console.WriteLine("value: {0} - {1},", "weidth", job.width);
 				}
+				DoWork(job);
+			}
 		}
 
-		static void DoWork(Job job) { 
+		static void DoWork(Job job)
+		{
 			Console.WriteLine("started working ");
 			Bitmap temp = Render(job);
 			temp.Save("myfile2.png", ImageFormat.Png);
+			Console.WriteLine(piece.ID);
 			piece.ID = job.ID;
+			Console.WriteLine(piece.ID);
+			piece.xLenth = job.width;
 			Sending(temp);
 		}
 
-		static void SendPart() { 
-			string pieceString = JsonConvert.SerializeObject(piece);    //Converts the job Object to a json string
+		static void SendPart()
+		{
+			string pieceString = JsonConvert.SerializeObject(piece);    //Converts the job Object to json (string)
 			byte[] pieceByte = Encoding.ASCII.GetBytes(@pieceString);    //Converts that string to bytes
 			if (verbose)
 			{
@@ -101,7 +108,8 @@ namespace FractalClient
 			Console.WriteLine("Done sending piece");
 		}
 
-		static void Sending(Bitmap img) {
+		static void Sending(Bitmap img)
+		{
 			Console.WriteLine("Started sending");
 
 			int width = img.Width;
@@ -111,27 +119,36 @@ namespace FractalClient
 				for (int j = 0; j < width; j++)
 				{
 					Pixel pix = new Pixel();
-					pix.Placement = (uint)((width * i) + j );
+					pix.Placement = (uint)((width * i) + j);
 					pix.color = img.GetPixel(j, i).R;
 					if (verbose)
 					{
-						Console.WriteLine("Now adding pix to piece" + Environment.NewLine + 
-						                  "Pix Placement: {0}",pix.Placement + Environment.NewLine +
-						                  "Pix Color{0}",pix.color + Environment.NewLine + 
-						                  "Pixel Color {0}",img.GetPixel(j, i));
+						Console.WriteLine("Now adding pix to piece" + Environment.NewLine +
+										  "Pix Placement: {0}", pix.Placement + Environment.NewLine +
+										  "Pix Color{0}", pix.color + Environment.NewLine +
+										  "Pixel Color {0}", img.GetPixel(j, i));
 					}
 					test.Add(pix);
-					if (test.Count == 1999)	//Or ((i * img.Height + j) % 2000 == 0) TODO test what is faster
+					if (test.Count == 290) //Or ((i * img.Height + j) % 2000 == 0) TODO test what is faster
 					{
+						Console.WriteLine("Now sending a part");
+						//piece.pixels = null;
+
 						piece.pixels = test;
+
 						piece.done = false;
+						Console.WriteLine("Test start");
 						SendPart();
+						test.Clear();
+						Console.WriteLine("Test slut");
 					}
+
 				}
 			}
 			//Now sending rest if there are any more, and sending the 'done' bool
 			if (test.Count > 0)
 			{
+				Console.WriteLine("Now ending send");
 				piece.pixels = test;
 			}
 			else
@@ -141,21 +158,21 @@ namespace FractalClient
 			piece.done = true;
 			SendPart();
 
-			Console.WriteLine("Done making a piece");
-			string pieceString = JsonConvert.SerializeObject(piece);    //Converts the job Object to a json string
-			byte[] pieceByte = Encoding.ASCII.GetBytes(@pieceString);    //Converts that string to bytes
-			if (verbose)
-			{
-				Console.WriteLine(Encoding.ASCII.GetString(pieceByte));
-			}
-			Console.WriteLine("sending piece");
-			host.Send(pieceByte);
-			Console.WriteLine("Done sending piece");
+			//string pieceString = JsonConvert.SerializeObject(piece);    //Converts the job Object to a json string
+			//byte[] pieceByte = Encoding.ASCII.GetBytes(@pieceString);    //Converts that string to bytes
+			//if (verbose)
+			//{
+			//	Console.WriteLine(Encoding.ASCII.GetString(pieceByte));
+			//}
+			//Console.WriteLine("sending piece");
+			//host.Send(pieceByte);
+			//Console.WriteLine("Done sending piece");
 			//piece = null;
 		}
 
 		static public Bitmap Render(Job job)
-		{Console.WriteLine("Started render");
+		{
+			Console.WriteLine("Started render");
 			// Holds all of the possible colors
 			//Color[] cs = new Color[256];
 
@@ -198,7 +215,7 @@ namespace FractalClient
 			Console.WriteLine("Done render");
 			return b;
 		}
-    }
+	}
 	public class Job
 	{
 		public ushort ID { get; set; }
@@ -217,6 +234,7 @@ namespace FractalClient
 										//TODO: might add offset to enable transfer while going
 		public List<Pixel> pixels { get; set; }
 		public bool done { get; set; }
+		public int xLenth { get; set; }
 	}
 	public class Pixel
 	{
