@@ -20,6 +20,7 @@ namespace FractalServer
 		IPEndPoint localEndPoint = new IPEndPoint(IPAddress.Any, 9001);
 		public List<Worker> RenderFarm = new List<Worker>();
 		public List<Job> JobList = new List<Job>();
+		public List<Thread> ThreadList = new List<Thread>();
 		Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 		public Thread ClientThread;
 		public double xmin = -2.1;
@@ -34,6 +35,7 @@ namespace FractalServer
 			InitializeComponent();
 			Thread ConnectThread = new Thread(Connect);
 			ConnectThread.Start();
+			ThreadList.Add(ConnectThread);
 		}
 
 		private void ConnectBtn_Click(object sender, EventArgs e)
@@ -62,7 +64,7 @@ namespace FractalServer
 
 				Worker temp = new Worker()
 				{
-					IP = localEndPoint.Address, //FIXME: Not the right address
+					IP = localEndPoint.Address, //FIXME: Not the right address, merly a placeholder
 					Socket = clientSocket,
 					Threads = Convert.ToUInt16(Encoding.ASCII.GetString(bytes))
 				};
@@ -72,6 +74,7 @@ namespace FractalServer
 					Resive(temp);
 				});
 				ClientThread.Start();
+				ThreadList.Add(ClientThread);
 				ClientDatagridview.Rows.Add(temp.IP.ToString(), temp.Threads.ToString());
 				ClientDatagridview.Update();
 			}
@@ -122,15 +125,96 @@ namespace FractalServer
 				if (i < RenderFarm.Count) { tmp = halfHeight; }
 				else { tmp = ymax; }
 				job.ymax = tmp;
-				job.xmax = xmin + (i % RenderFarm.Count) * jobXLenth; //FIXME Fixed?
+				job.xmax = xmin + i * jobXLenth; //FIXME Fixed?
 				job.xmin = xmin + (i - 1) * jobXLenth % RenderFarm.Count;
+				int width = factalPictureBox.Width;
+				int height = factalPictureBox.Height;
 				job.height = factalPictureBox.Height / 2;
 				job.width = factalPictureBox.Width / RenderFarm.Count;
 
 				JobList.Add(job);
 			}
 		}
+		public void RenderThis(Piece piece, int lastPlacement, byte[] bytes)
+		{
+			int y;
+			int x;
+			int startX = (piece.ID % RenderFarm.Count) * piece.xLenth;
+			int startY = (piece.ID / RenderFarm.Count) * (factalPictureBox.Height / 2);
+			for (int i = 0; i < 8175;)
+			{
+				if (i > 800)
+				{
+					int placement = lastPlacement + (i / 2);
+					y = startY + placement / piece.xLenth;
+					x = startX + placement - (y - startY) * piece.xLenth;
+					ushort color = BitConverter.ToUInt16(bytes, i + 15);
+					tempBitmap.SetPixel(x, y, Color.FromArgb(color, 0, 0));
+					i += 2;
+				}
+				else
+				{
+					int placement = lastPlacement + (i / 2);
+					y = startY + placement / piece.xLenth;
+					x = startX + placement - (y - startY) * piece.xLenth;
+					ushort color = BitConverter.ToUInt16(bytes, i + 15);
+					tempBitmap.SetPixel(x, y, Color.FromArgb(color, 0, 0));
+					i += 2;
+				}
+			}
+			factalPictureBox.Image = tempBitmap;
+			factalPictureBox.Update();
+			//foreach (var i in piece.pixels)
+			//{
+			//	if (piece.ID < RenderFarm.Count)
+			//	{
+			//		y = Convert.ToInt32(i.Placement) / piece.xLenth;
+			//		x = (piece.xLenth * piece.ID) + Convert.ToInt32(i.Placement) % piece.xLenth;
+			//	}
+			//	else
+			//	{
+			//		y = factalPictureBox.Height / 2 + Convert.ToInt32(i.Placement) / piece.xLenth;
+			//		x = (piece.xLenth * Convert.ToInt32(piece.ID / 2)) + Convert.ToInt32(i.Placement) % piece.xLenth;
+			//	}
+			//	//int x = (piece.xLenth * piece.ID) + Convert.ToInt32(i.Placement) % piece.xLenth;
+			//	try
+			//	{
+			//		tempBitmap.SetPixel(x, y, Color.FromArgb(i.color, 0, 0));
+			//	}
+			//	catch (Exception ex)
+			//	{
+			//		MessageBox.Show(ex.Message + "");
+			//	}
+			//	//factalPictureBox.Image = tempBitmap;
+			//	//factalPictureBox.Update();
+			//	//tempBitmap.Save("myfilebla.png", ImageFormat.Png);
+			//}
+		}
 
+		public void FormPiece(byte[] bytes)
+		{
+			//Piece piece = new Piece();
+
+			//byte[] byteID = CopyPartOfArray(2, 0, bytes);
+			//byte[] byteXLenth = CopyPartOfArray(4, 2, bytes);
+			//byte[] byteRunning = CopyPartOfArray(1, 6, bytes);
+			//byte[] bytePlacement = CopyPartOfArray(4, 10, bytes);
+			//piece.ID = BitConverter.ToUInt16(bytes, 0);
+			//piece.xLenth = BitConverter.ToInt32(bytes, 2);
+			//piece.done = BitConverter.ToBoolean(bytes, 6);
+			//int placement = BitConverter.ToInt32(bytes, 7);
+			//RenderThis(piece, placement, bytes);
+		}
+
+		public byte[] CopyPartOfArray(int arraySize, int startCopyAt, byte[] fromArray)
+		{
+			byte[] byteTemp = new byte[arraySize];
+			for (int a = 0; a < arraySize; a++)
+			{
+				byteTemp[a] = fromArray[startCopyAt + a];
+			}
+			return byteTemp;
+		}
 
 		public void Resive(Worker worker)
 		{
@@ -138,49 +222,62 @@ namespace FractalServer
 			{
 				while (true)
 				{
-					byte[] bytes = new Byte[8192];
+					byte[] bytes = new byte[8192];
 					//string pieceString = "";
 					//while (worker.Socket.Receive(bytes) > 0)  //This might not be needed anymore, the client now sends every time a buffer is full
 					//{
 					//	pieceString += Encoding.ASCII.GetString(bytes);
 					//}
 					worker.Socket.Receive(bytes);
-					string pieceString = Encoding.ASCII.GetString(bytes);
-					Piece piece = JsonConvert.DeserializeObject<Piece>(pieceString);
-					int y;
-					int x;
-					foreach (var i in piece.pixels)
-					{
-						if (piece.ID < RenderFarm.Count)
-						{
-							y = Convert.ToInt32(i.Placement) / piece.xLenth;
-							x = (piece.xLenth * piece.ID) + Convert.ToInt32(i.Placement) % piece.xLenth;
-						}
-						else
-						{
-							y = factalPictureBox.Height / 2 + Convert.ToInt32(i.Placement) / piece.xLenth;
-							x = (piece.xLenth * Convert.ToInt32(piece.ID / 2)) + Convert.ToInt32(i.Placement) % piece.xLenth;
-						}
-						//int x = (piece.xLenth * piece.ID) + Convert.ToInt32(i.Placement) % piece.xLenth;
-						try
-						{
-							tempBitmap.SetPixel(x, y, Color.FromArgb(i.color, 0, 0));
-						}
-						catch (Exception ex)
-						{
-							MessageBox.Show(ex.Message + "");
-						}
 
-					}
 
-					factalPictureBox.Image = tempBitmap;
-					factalPictureBox.Update();
-					tempBitmap.Save("myfilebla.png", ImageFormat.Png);
+					//string pieceString = Encoding.ASCII.GetString(bytes);
+					//Piece piece = JsonConvert.DeserializeObject<Piece>(pieceString);
+					//ClientThread = new Thread(() =>
+					//{
+					//	FormPiece(bytes);
+					//});
+					//ClientThread.Start();
+					Piece piece = new Piece();
+					piece.ID = BitConverter.ToUInt16(bytes, 0);
+					piece.xLenth = BitConverter.ToInt32(bytes, 2);
+					piece.done = BitConverter.ToBoolean(bytes, 6);
+					int placement = BitConverter.ToInt32(bytes, 7);
+					RenderThis(piece, placement, bytes);
+					//int y;
+					//int x;
+					//foreach (var i in piece.pixels)
+					//{
+					//	if (piece.ID < RenderFarm.Count)
+					//	{
+					//		y = Convert.ToInt32(i.Placement) / piece.xLenth;
+					//		x = (piece.xLenth * piece.ID) + Convert.ToInt32(i.Placement) % piece.xLenth;
+					//	}
+					//	else
+					//	{
+					//		y = factalPictureBox.Height / 2 + Convert.ToInt32(i.Placement) / piece.xLenth;
+					//		x = (piece.xLenth * Convert.ToInt32(piece.ID / 2)) + Convert.ToInt32(i.Placement) % piece.xLenth;
+					//	}
+					//	//int x = (piece.xLenth * piece.ID) + Convert.ToInt32(i.Placement) % piece.xLenth;
+					//	try
+					//	{
+					//		tempBitmap.SetPixel(x, y, Color.FromArgb(i.color, 0, 0));
+					//	}
+					//	catch (Exception ex)
+					//	{
+					//		MessageBox.Show(ex.Message + "");
+					//	}
 
-					if (piece.done == true)
-					{   //If there still are jobs to be done, send the worker a new one
-						Send(worker);
-					}
+					//}
+
+					//factalPictureBox.Image = tempBitmap;
+					//factalPictureBox.Update();
+					//tempBitmap.Save("myfilebla.png", ImageFormat.Png);
+
+					//if (piece.done == true)
+					//{   //If there still are jobs to be done, send the worker a new one
+					//	Send(worker);
+					//}
 					bytes = null;
 				}
 			}
@@ -210,7 +307,7 @@ namespace FractalServer
 		public Bitmap Render(Job job)
 		{
 			// Holds all of the possible colors
-			Color[] cs = new Color[256]; //Not used as of this time
+			//Color[] cs = new Color[256]; //Not used as of this time
 
 			// Creates the Bitmap we draw to
 			Bitmap b = new Bitmap(job.width, job.height);
@@ -278,10 +375,12 @@ namespace FractalServer
 
 		private void button1_Click(object sender, EventArgs e)
 		{
-			xmin = -2.1;
-			ymin = -1.3;
-			xmax = 1.0;
-			ymax = 1.3;
+			factalPictureBox.Image = tempBitmap;
+			factalPictureBox.Update();
+			//xmin = -2.1;
+			//ymin = -1.3;
+			//xmax = 1.0;
+			//ymax = 1.3;
 		}
 
 		private void SaveBtn_Click(object sender, EventArgs e)
@@ -313,6 +412,14 @@ namespace FractalServer
 			tempBitmap = new Bitmap(
 				Height = factalPictureBox.Height,
 				Width = factalPictureBox.Width);
+		}
+
+		private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+		{
+			foreach (var iThread in ThreadList)
+			{
+				iThread.Abort();
+			}
 		}
 	}
 
