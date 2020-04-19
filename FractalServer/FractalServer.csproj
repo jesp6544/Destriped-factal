@@ -7,8 +7,8 @@
     <ProjectGuid>{494B56A7-8C22-45F6-9D38-39C1B7DD48D9}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>FractalServer</RootNamespace>
-    <AssemblyName>FractalServer</AssemblyName>
+    <RootNamespace>FractalServer - Depricated</RootNamespace>
+    <AssemblyName>FractalServer - Depricated</AssemblyName>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>

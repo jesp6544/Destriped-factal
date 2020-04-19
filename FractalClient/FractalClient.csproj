@@ -7,8 +7,8 @@
     <ProjectGuid>{AA3B1CC5-D193-41EF-AE21-77BB00927871}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>FractalClient</RootNamespace>
-    <AssemblyName>FractalClient</AssemblyName>
+    <RootNamespace>FractalClient - Depricated</RootNamespace>
+    <AssemblyName>FractalClient - Depricated</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
