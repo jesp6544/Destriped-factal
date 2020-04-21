@@ -6,6 +6,8 @@ namespace Core
 {
     public class Render
     {
+        private int _loops = 250;
+        
         public Bitmap GetMandlebrot(Job job)
         {
             
@@ -30,7 +32,7 @@ namespace Core
                     x1 = 0;
                     y1 = 0;
                     looper = 0;
-                    while (looper < 250 && Math.Sqrt((x1 * x1) + (y1 * y1)) < 2)
+                    while (looper < _loops && Math.Sqrt((x1 * x1) + (y1 * y1)) < 2)
                     {
                         looper++;
                         xx = (x1 * x1) - (y1 * y1) + x;
@@ -39,7 +41,7 @@ namespace Core
                     }
 
                     // Get the percent of where the looper stopped
-                    double perc = looper / (250.0);
+                    double perc = looper / (double) _loops;
                     // Get that part of a 255 scale
                     int val = ((int)(perc * 255));
                     // Use that number to set the color
