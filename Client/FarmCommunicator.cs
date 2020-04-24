@@ -32,8 +32,23 @@ namespace Client
 
         private Socket EstablishConnectionToMaster(IPAddress ipAddress)
         {
+            var connected = false;
             var connection = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            connection.Connect(ipAddress, 9001);
+
+            while (!connected)
+            {
+                try
+                {
+                    connection.Connect(ipAddress, 9001);
+                    connected = true;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Connect to master failed, will retry in 10000ms, error was: {e}");
+                    Thread.Sleep(10000);
+                }
+            }
+
             return connection;
         }
 
