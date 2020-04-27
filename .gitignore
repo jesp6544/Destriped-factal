@@ -29,16 +29,21 @@ DestripAndFractalTest.userprefs
 
 packages/*
 
-/Client/obj/
 /Client/bin/
+/Client/obj/
+
+/Server/bin/
+/Server/obj/
 
 /Core/bin/
+/Core/obj/
 
-FractalClient/obj/
 FractalClient/bin/
+FractalClient/obj/
 
 FractalServer/bin/
-FractalServer/packages/
 FractalServer/obj/
+FractalServer/packages/
 FractalServer/FractalServer.userprefs
+
 /.idea/.idea.DestripAndFractalTest/.idea/.name
