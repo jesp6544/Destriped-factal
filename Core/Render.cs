@@ -4,9 +4,14 @@ using Core.Models;
 
 namespace Core
 {
-    public class Render
+    public class Render : IRender
     {
-        private int _loops = 250;
+        private readonly int _loops;
+
+        public Render(int loopCounts = 255)
+        {
+            _loops = loopCounts;
+        }
         
         public Bitmap GetMandlebrot(Job job)
         {

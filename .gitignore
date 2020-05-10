@@ -41,6 +41,9 @@ packages/*
 FractalClient/bin/
 FractalClient/obj/
 
+GuiClient/bin/
+GuiClient/obj/
+
 FractalServer/bin/
 FractalServer/obj/
 FractalServer/packages/
