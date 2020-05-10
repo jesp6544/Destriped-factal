@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Core", "Core\Core.csproj", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Server", "Server\Server.csproj", "{1C6C4D9E-73C9-4FEB-B741-790D886DAB0C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GuiClient", "GuiClient\GuiClient.csproj", "{D1993724-1947-4A49-A332-FD54573D8D98}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{1C6C4D9E-73C9-4FEB-B741-790D886DAB0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1C6C4D9E-73C9-4FEB-B741-790D886DAB0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1C6C4D9E-73C9-4FEB-B741-790D886DAB0C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1993724-1947-4A49-A332-FD54573D8D98}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1993724-1947-4A49-A332-FD54573D8D98}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1993724-1947-4A49-A332-FD54573D8D98}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1993724-1947-4A49-A332-FD54573D8D98}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
